@@ -1,0 +1,240 @@
+
+<TYPE! html>
+  <html>
+  
+  <head>
+    <meta charset='utf-8' />
+    <title>COVID-19 Visualization</title>
+    <meta name='robots' content='noindex, nofollow'>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.2/dist/Chart.min.js"></script>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.4.1.min.js" ></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" ></script>
+    
+  
+  <style>
+
+#map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
+ 
+  </style>
+  
+  <style>
+    #extrude {
+      position: absolute;
+      top: 150px;
+      right: 10px;
+      background: white;
+      width: 30px;
+      height: 30px;
+      padding: 7px 0;
+      text-align: center;
+      font-size: larger;
+      cursor: pointer;
+      font-weight: bold;
+      line-height: 15px;
+    }
+    .active {
+      font-weight: bolder;
+      color: orange;
+    }
+    </style>
+
+  
+
+  </head>
+  
+  <body>
+
+    <div id='map'></div>
+
+
+
+  <script>
+
+
+    /*Blank Mapbox GL Map*/
+
+    var map = new mapboxgl.Map({
+      container: 'map',
+      hash: true,
+      /*style: 'some mapbox style url*/
+      /*below is a blank style*/
+      style: {
+        "version": 8,
+        "name": "blank",
+        "sources": {
+          "openmaptiles": {
+            "type": "vector",
+            "url": ""
+          }
+        },
+        "layers": [{
+          "id": "background",
+          "type": "background",
+          "paint": {
+            "background-color": "#1d1f20"
+          }
+        }]
+      },
+      center: [-95.52, 39.94],
+      zoom: 4,
+      debug: 1
+    });
+    map.addControl(new mapboxgl.NavigationControl());
+    map.addControl(new mapboxgl.FullscreenControl());
+    
+    /*End Blank Map*/
+    
+    /*Choropleth and Extrusion Example*/
+    
+    var mapdiv = document.getElementById('map');
+    var button = document.createElement("div");
+    button.setAttribute("id", "extrude");
+    button.setAttribute("class", "mapboxgl-ctrl-group");
+    button.innerHTML = "3D";
+    mapdiv.appendChild(button);
+    
+    var view2 = {
+      center: [-80.6, 39.1],
+      zoom: 5,
+      bearing: -18.1,
+      pitch: 60,
+      speed: 0.5,
+      curve: 0.7
+    };
+    var view1 = {
+      center: [-95.52, 39.94],
+      zoom: 4,
+      bearing: 0,
+      pitch: 0,
+      speed: 0.5,
+      curve: 0.5
+    };
+    
+    map.on('style.load', function() {
+      map.flyTo(view1);
+      map.addSource('counties', {
+        'type': 'geojson',
+        'data': 'counties.geojson'
+      });
+      map.addLayer({
+        'id': 'countiesLayer',
+        'type': 'fill',
+        'source': 'counties',
+        'layout': {
+          'visibility': 'visible'
+        },
+        'paint': {
+          'fill-color': {
+            'property': 'popsqmi',
+            'stops': [
+              [1, 'white'],
+              [25, 'orange'],
+              [1000, 'firebrick']
+            ]
+          },
+          'fill-outline-color': 'white',
+          'fill-opacity': 0.9
+        }
+      });
+    
+      /* this would be different for mapbox styles*/
+    
+      map.addLayer({
+        'id': 'popsqmi',
+        'type': 'fill-extrusion',
+        'source': 'counties',
+        'layout': {
+          'visibility': 'none'
+        },
+        'paint': {
+          'fill-extrusion-color': {
+            'property': 'popsqmi',
+            'stops': [
+              [1, 'white'],
+              [25, 'orange'],
+              [1000, 'firebrick']
+            ]
+          },
+          'fill-extrusion-height': {
+            "property": 'popsqmi',
+            "stops": [
+              [1, 0],
+              [25, 1000],
+              [1000, 65535]
+            ]
+          },
+          'fill-extrusion-opacity': 0.9,
+          'fill-extrusion-base': 0
+        }
+      }); /* this would be different for mapbox styles*/
+    
+      var ex = document.getElementById('extrude');
+      ex.addEventListener('click', function() {
+        if ((map.getLayoutProperty('countiesLayer', 'visibility')) === 'visible') {
+          map.setLayoutProperty('popsqmi', 'visibility', 'visible');
+          ex.className = 'mapboxgl-ctrl-group active';
+          setTimeout(function() {
+            map.flyTo(view2);
+            map.setLayoutProperty('countiesLayer', 'visibility', 'none');
+          }, 2000);
+        } else {
+          map.setLayoutProperty('countiesLayer', 'visibility', 'visible');
+          map.setLayoutProperty('popsqmi', 'visibility', 'none');
+          ex.className = 'mapboxgl-ctrl-group';
+          map.flyTo(view1);
+        }
+      });
+    
+    });
+    
+    /*End Choropleth Example*/
+    
+    /*Query with Popup and tooltip example*/
+    
+    var popup = new mapboxgl.Popup({
+      closeButton: false,
+      closeOnClick: false
+    });
+    
+    function identifyFeatures(location, layer, fields) {
+      var identifiedFeatures = map.queryRenderedFeatures(location.point, layer);
+      /*console.log(identifiedFeatures);*/
+      popup.remove();
+      if (identifiedFeatures != '') {
+        var popupText = "";
+        for (i = 0; i < fields.length; i++) {
+          popupText += "<strong>" + fields[i] + ":</strong> " + identifiedFeatures[0].properties[fields[i]] + "<" + "br" + ">"
+        };
+        popup.setLngLat(location.lngLat)
+          .setHTML(popupText)
+          .addTo(map);
+      }
+    }
+    
+    map.on('click', function(e) {
+      identifyFeatures(e, 'countiesLayer', ["NAME", "POPULATION", "POP_SQMI"])
+    });
+    
+    map.on('mousemove', function(e) {
+      identifyFeatures(e, 'countiesLayer', ["NAME", "POPULATION", "POP_SQMI"])
+    });
+    
+    /*End popup and tooltip example*/
+    
+  </script>
+  
+  </body>
+  
+  </html>
+  
+  
+  
+  

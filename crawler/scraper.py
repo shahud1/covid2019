@@ -11,8 +11,7 @@ soup = BeautifulSoup(page.text, 'html.parser')
 
 f = csv.writer(open('WUHAN.csv', 'w'))
 
-x = []
-for link in soup.find_all('td',class_='d-block'):
+x in soup.find_all('td',class_='d-block'):
         #print(link.get_text(strip=True))
         x.append(link.get_text())
 
